@@ -23,19 +23,22 @@ void setup()
 
 void loop()
 {
-  if (digitalRead(PIN_PUSHBUTTON_BLUE) == LOW) {
-      
-  	digitalWrite(PIN_LED_GREEN, HIGH);
+  int btn = (PIND & _BV(PIN_PUSHBUTTON_BLUE)) >> PIN_PUSHBUTTON_BLUE;
+
+
+  if (btn == LOW) {
+      PORTD = _BV(PIN_LED_GREEN) | PORTD;
     pushed = 1;
   	delay(1000);
   } 
-  if ((pushed == 1) && (digitalRead(PIN_PUSHBUTTON_BLUE) == HIGH)){
-        // PORTD = ~_BV(PIN_LED_GREEN)
-      digitalWrite(PIN_LED_GREEN, LOW);
-      digitalWrite(PIN_LED_YELLOW, HIGH);
+  if ((pushed == 1) && (btn == HIGH)){
+      PORTD = ~_BV(PIN_LED_GREEN) | PORTD;
+      PORTB =  _BV(PIN_LED_YELLOW) | PORTB;
+        
       delay(2000);
-      digitalWrite(PIN_LED_RED, HIGH);
-      digitalWrite(PIN_LED_YELLOW, LOW);
+      
+      PORTB = ~_BV(PIN_LED_YELLOW) | PORTB;
+      PORTB =  _BV(PIN_LED_RED) | PORTB;
     pushed = 0;
   }
   
