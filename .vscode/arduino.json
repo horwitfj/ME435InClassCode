@@ -1,6 +1,5 @@
 {
     "board": "arduino:avr:uno",
     "port": "COM11",
-    "sketch": "TrafficLightsArduinoLibrary\\TrafficLightsArduinoLibrary.ino",
     "output": "../ArduinoOutput"
 }
