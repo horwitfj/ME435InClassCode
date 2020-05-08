@@ -1,14 +1,3 @@
-//TODO Get rid of Arduino Library #defines
-#define PIN_LED_RED 10
-#define PIN_LED_YELLOW 9
-#define PIN_LED_GREEN 6
-#define PIN_LED_BLUE 5
-
-#define PIN_PUSHBUTTON_RED 3     // INT1
-#define PIN_PUSHBUTTON_YELLOW 2  // INT0
-#define PIN_PUSHBUTTON_GREEN 1
-#define PIN_PUSHBUTTON_BLUE 0
-
 // Output PORTs and BITs
 #define REG_PORT_LED_RED PORTB
 #define BIT_LED_RED 2
@@ -39,47 +28,54 @@ uint8_t greenState = HIGH;
 uint8_t lastGreenState = HIGH;
 
 volatile uint8_t mainEventFlags = 0;
-#define FLAG_YELLOW_PUSHBUTTON 0x01
-#define FLAG_RED_PUSHBUTTON 0x02
+#define FLAG_RED_PUSHBUTTON 0x01
+#define FLAG_YELLOW_PUSHBUTTON 0x02
+#define FLAG_GREEN_PUSHBUTTON 0x04
+#define FLAG_BLUE_PUSHBUTTON 0x08
+
+volatile uint8_t portdhistory = 0xFF;
 
 void setup() {
   Serial.begin(9600);
   DDRB = _BV(BIT_LED_RED) | _BV(BIT_LED_YELLOW);  // Set RED and YELLOW LEDs as Output
   DDRD = _BV(BIT_LED_GREEN) | _BV(BIT_LED_BLUE);  // Set GREEN and BLUE LEDs as Output
-
   REG_PORT_PUSHBUTTON_RED |= _BV(BIT_PUSHBUTTON_RED);
   REG_PORT_PUSHBUTTON_YELLOW |= _BV(BIT_PUSHBUTTON_YELLOW);
   REG_PORT_PUSHBUTTON_GREEN |= _BV(BIT_PUSHBUTTON_GREEN);
   REG_PORT_PUSHBUTTON_BLUE |= _BV(BIT_PUSHBUTTON_BLUE);
 
-  pinMode(PIN_PUSHBUTTON_RED, INPUT_PULLUP);
-  pinMode(PIN_PUSHBUTTON_YELLOW, INPUT_PULLUP);
-  pinMode(PIN_PUSHBUTTON_GREEN, INPUT_PULLUP);
-  pinMode(PIN_PUSHBUTTON_BLUE, INPUT_PULLUP);
+  // Update this later!
+  // attachInterrupt(digitalPinToInterrupt(PIN_PUSHBUTTON_YELLOW), yellow_pushbutton_isr, FALLING);
+  // attachInterrupt(digitalPinToInterrupt(PIN_PUSHBUTTON_RED), red_pushbutton_isr, FALLING);
 
-  attachInterrupt(digitalPinToInterrupt(PIN_PUSHBUTTON_YELLOW), yellow_pushbutton_isr, FALLING);
-  attachInterrupt(digitalPinToInterrupt(PIN_PUSHBUTTON_RED), red_pushbutton_isr, FALLING);
+  // EICRA = 0x0A;  // Set INT0 and INT1 to falling edge
+  // EICRA = _BV(ISC11) | _BV(ISC01);
+  // EIMSK = 0x03;  // Turns on both INT0 and INT1
+  // EIMSK = _BV(INT0)  | _BV(INT1);
+
+  PCICR = _BV(PCIE2);  // Enable Pin Change Interrupts for Port D pins
+  //PCMSK2 = 0x0F;                                                       // Enables RD0 - RD3 as interrupts
+  PCMSK2 = _BV(PCINT19) | _BV(PCINT18) | _BV(PCINT17) | _BV(PCINT16);  // Enables RD0 - RD3 as interrupts
+
+  sei();  // Turn on interrupts globally. Not required for us, since Arduino does it.
 }
 
-void loopxx() {
+void showFeedbackLeds() {
   if (bit_is_clear(REG_PIN_PUSHBUTTON_RED, BIT_PUSHBUTTON_RED)) {
     REG_PORT_LED_RED |= _BV(BIT_LED_RED);
   } else {
     REG_PORT_LED_RED &= ~_BV(BIT_LED_RED);
   }
-  
   if (bit_is_clear(REG_PIN_PUSHBUTTON_YELLOW, BIT_PUSHBUTTON_YELLOW)) {
     REG_PORT_LED_YELLOW |= _BV(BIT_LED_YELLOW);
   } else {
     REG_PORT_LED_YELLOW &= ~_BV(BIT_LED_YELLOW);
   }
-  
   if (bit_is_clear(REG_PIN_PUSHBUTTON_GREEN, BIT_PUSHBUTTON_GREEN)) {
     REG_PORT_LED_GREEN |= _BV(BIT_LED_GREEN);
   } else {
     REG_PORT_LED_GREEN &= ~_BV(BIT_LED_GREEN);
   }
-  
   if (bit_is_clear(REG_PIN_PUSHBUTTON_BLUE, BIT_PUSHBUTTON_BLUE)) {
     REG_PORT_LED_BLUE |= _BV(BIT_LED_BLUE);
   } else {
@@ -93,7 +89,6 @@ void oldTestCode() {
   REG_PORT_LED_GREEN |= _BV(BIT_LED_GREEN);
   REG_PORT_LED_BLUE |= _BV(BIT_LED_BLUE);
   delay(1000);
-
   REG_PORT_LED_RED &= ~_BV(BIT_LED_RED);
   REG_PORT_LED_YELLOW &= ~_BV(BIT_LED_YELLOW);
   REG_PORT_LED_GREEN &= ~_BV(BIT_LED_GREEN);
@@ -101,54 +96,94 @@ void oldTestCode() {
   delay(1000);
 }
 
-void loop2() {
+void loop() {
   // Keep as a reference for the Sequencing HW
-  //digitalWrite(PIN_LED_RED,!digitalRead(PIN_PUSHBUTTON_RED));
-  //digitalWrite(PIN_LED_YELLOW,!digitalRead(PIN_PUSHBUTTON_YELLOW));
-  //digitalWrite(PIN_LED_GREEN,!digitalRead(PIN_PUSHBUTTON_GREEN));
-  //digitalWrite(PIN_LED_BLUE,!digitalRead(PIN_PUSHBUTTON_BLUE));
-
-  if (mainEventFlags & FLAG_YELLOW_PUSHBUTTON) {
-    delay(30);
-    mainEventFlags &= ~FLAG_YELLOW_PUSHBUTTON;
-    if (!digitalRead(PIN_PUSHBUTTON_YELLOW)) {
-      // Do the action!
-      digitalWrite(PIN_LED_YELLOW, !digitalRead(PIN_LED_YELLOW));
-    }
-  }
+  // showFeedbackLeds
 
   if (mainEventFlags & FLAG_RED_PUSHBUTTON) {
     delay(30);
     mainEventFlags &= ~FLAG_RED_PUSHBUTTON;
-    if (!digitalRead(PIN_PUSHBUTTON_RED)) {
+    if (bit_is_clear(REG_PIN_PUSHBUTTON_RED, BIT_PUSHBUTTON_RED)) {
       // Do the action!
-      digitalWrite(PIN_LED_RED, !digitalRead(PIN_LED_RED));
+      REG_PORT_LED_RED ^= _BV(BIT_LED_RED);
     }
   }
-
-  greenState = digitalRead(PIN_PUSHBUTTON_GREEN);
-  if (greenState != lastGreenState) {
-    if (!greenState) {
-      digitalWrite(PIN_LED_GREEN, !digitalRead(PIN_LED_GREEN));
+  if (mainEventFlags & FLAG_YELLOW_PUSHBUTTON) {
+    delay(30);
+    mainEventFlags &= ~FLAG_YELLOW_PUSHBUTTON;
+    if (bit_is_clear(REG_PIN_PUSHBUTTON_YELLOW, BIT_PUSHBUTTON_YELLOW)) {
+      // Do the action!
+      REG_PORT_LED_YELLOW ^= _BV(BIT_LED_YELLOW);
     }
-    delay(50);
   }
-  lastGreenState = greenState;
-
-  blueState = digitalRead(PIN_PUSHBUTTON_BLUE);
-  if (blueState != lastBlueState) {
-    if (!blueState) {
-      digitalWrite(PIN_LED_BLUE, !digitalRead(PIN_LED_BLUE));
+  if (mainEventFlags & FLAG_GREEN_PUSHBUTTON) {
+    delay(30);
+    mainEventFlags &= ~FLAG_GREEN_PUSHBUTTON;
+    if (bit_is_clear(REG_PIN_PUSHBUTTON_GREEN, BIT_PUSHBUTTON_GREEN)) {
+      // Do the action!
+      REG_PORT_LED_GREEN ^= _BV(BIT_LED_GREEN);
     }
-    delay(50);
   }
-  lastBlueState = blueState;
+  if (mainEventFlags & FLAG_BLUE_PUSHBUTTON) {
+    delay(30);
+    mainEventFlags &= ~FLAG_BLUE_PUSHBUTTON;
+    if (bit_is_clear(REG_PIN_PUSHBUTTON_BLUE, BIT_PUSHBUTTON_BLUE)) {
+      // Do the action!
+      REG_PORT_LED_BLUE ^= _BV(BIT_LED_BLUE);
+    }
+  }
+  // NO POLLING!
+  // // greenState = digitalRead(PIN_PUSHBUTTON_GREEN);
+  // greenState = bit_is_set(REG_PIN_PUSHBUTTON_GREEN, BIT_PUSHBUTTON_GREEN);
+  // if (greenState != lastGreenState) {
+  //   if (!greenState) {
+  //     REG_PORT_LED_GREEN ^= _BV(BIT_LED_GREEN);
+  //   }
+  //   delay(50);
+  // }
+  // lastGreenState = greenState;
+  // // blueState = digitalRead(PIN_PUSHBUTTON_BLUE);
+  // blueState = bit_is_set(REG_PIN_PUSHBUTTON_BLUE, BIT_PUSHBUTTON_BLUE);
+  // if (blueState != lastBlueState) {
+  //   if (!blueState) {
+  //     REG_PORT_LED_BLUE ^= _BV(BIT_LED_BLUE);
+  //   }
+  //   delay(50);
+  // }
+  // lastBlueState = blueState;
 }
 
-void yellow_pushbutton_isr() {
-  mainEventFlags |= FLAG_YELLOW_PUSHBUTTON;
-}
+// ISR(INT0_vect) {
+//   mainEventFlags |= FLAG_YELLOW_PUSHBUTTON;
+// }
 
-void red_pushbutton_isr() {
-  mainEventFlags |= FLAG_RED_PUSHBUTTON;
+// ISR(INT1_vect) {
+//   mainEventFlags |= FLAG_RED_PUSHBUTTON;
+// }
+
+ISR(PCINT2_vect) {
+  // ISR called means that RD0, RD1, RD2, or RD3 changed.
+  uint8_t changedbits;
+  changedbits = PIND ^ portdhistory;  // All pins are on port D
+  portdhistory = PIND;
+  if (changedbits & _BV(BIT_PUSHBUTTON_RED)) {
+    if (bit_is_clear(REG_PIN_PUSHBUTTON_RED, BIT_PUSHBUTTON_RED)) {
+      mainEventFlags |= FLAG_RED_PUSHBUTTON;
+    }
+  }
+  if (changedbits & _BV(BIT_PUSHBUTTON_YELLOW)) {
+    if (bit_is_clear(REG_PIN_PUSHBUTTON_YELLOW, BIT_PUSHBUTTON_YELLOW)) {
+      mainEventFlags |= FLAG_YELLOW_PUSHBUTTON;
+    }
+  }
+  if (changedbits & _BV(BIT_PUSHBUTTON_GREEN)) {
+    if (bit_is_clear(REG_PIN_PUSHBUTTON_GREEN, BIT_PUSHBUTTON_GREEN)) {
+      mainEventFlags |= FLAG_GREEN_PUSHBUTTON;
+    }
+  }
+  if (changedbits & _BV(BIT_PUSHBUTTON_BLUE)) {
+    if (bit_is_clear(REG_PIN_PUSHBUTTON_BLUE, BIT_PUSHBUTTON_BLUE)) {
+      mainEventFlags |= FLAG_BLUE_PUSHBUTTON;
+    }
+  }
 }
