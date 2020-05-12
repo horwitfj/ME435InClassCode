@@ -1,4 +1,5 @@
 {
     "board": "arduino:avr:uno",
-    "port": "COM11"
+    "port": "COM11",
+    "sketch": "HW\\Exam_2\\Exam_2.ino"
 }

@@ -6,6 +6,21 @@ LiquidCrystal lcd(13, 12, 11, 10, 9, 8);
 #define LINE_1 1
 #define PIN_POT 0
 
+#define REG_PORT_LED_YELLOW PORTB
+#define BIT_LED_YELLOW 1
+#define REG_PORT_LED_GREEN PORTD
+#define BIT_LED_GREEN 6
+
+#define REG_PORT_PUSHBUTTON_YELLOW PORTD
+#define REG_PIN_PUSHBUTTON_YELLOW PIND
+#define BIT_PUSHBUTTON_YELLOW 2
+#define REG_PORT_PUSHBUTTON_GREEN PORTD
+#define REG_PIN_PUSHBUTTON_GREEN PIND
+#define BIT_PUSHBUTTON_GREEN 1
+#define REG_PORT_PUSHBUTTON_BLUE PORTD
+#define REG_PIN_PUSHBUTTON_BLUE PIND
+#define BIT_PUSHBUTTON_BLUE 0
+
 // Using a 16 MHz clock, we want 0.1 second interrupts();
 // Timer 1 used for the Yellow Timer
 // Legal values are 0 to 65536
@@ -44,12 +59,21 @@ unsigned long priorTimeMs = 0;
 void setup() {
   lcd.begin(16, 2);
 
-  pinMode(PIN_PUSHBUTTON_YELLOW, INPUT_PULLUP);
-  pinMode(PIN_PUSHBUTTON_GREEN, INPUT_PULLUP);
-  pinMode(PIN_PUSHBUTTON_BLUE, INPUT_PULLUP);
+  // pinMode(PIN_PUSHBUTTON_YELLOW, INPUT_PULLUP);
+  // pinMode(PIN_PUSHBUTTON_GREEN, INPUT_PULLUP);
+  // pinMode(PIN_PUSHBUTTON_BLUE, INPUT_PULLUP);
+  DDRB = _BV(BIT_LED_YELLOW);  // Set RED and YELLOW LEDs as Output
+  DDRD = _BV(BIT_LED_GREEN);   // Set GREEN and BLUE LEDs as Output
+  REG_PORT_PUSHBUTTON_YELLOW |= _BV(BIT_PUSHBUTTON_YELLOW);
+  REG_PORT_PUSHBUTTON_GREEN |= _BV(BIT_PUSHBUTTON_GREEN);
+  REG_PORT_PUSHBUTTON_BLUE |= _BV(BIT_PUSHBUTTON_BLUE);
 
   attachInterrupt(digitalPinToInterrupt(PIN_PUSHBUTTON_YELLOW), yellow_pushbutton_isr, FALLING);
   attachInterrupt(digitalPinToInterrupt(PIN_PUSHBUTTON_GREEN), green_pushbutton_isr, FALLING);
+  // // EICRA = 0x0A;  // Set INT0 and INT1 to falling edge
+  // EICRA = _BV(ISC11) | _BV(ISC01);
+  // // EIMSK = 0x03;  // Turns on both INT0 and INT1
+  // EIMSK = _BV(INT0) | _BV(INT1);
 
   pinMode(PIN_LED_GREEN, OUTPUT);
   pinMode(PIN_LED_YELLOW, OUTPUT);
@@ -134,12 +158,11 @@ void updateLcd() {
   lcd.print(yellowTimerTenthsSecond % 10);
 
   lcd.setCursor(0, LINE_0);
-  lcd.print(greenTimerThousandthsSecond / 2048);
+  lcd.print(greenTimerThousandthsSecond / 1998);
   lcd.print(".");
-  lcd.print(greenTimerThousandthsSecond / 205 % 10);
+  lcd.print(greenTimerThousandthsSecond * 5 / 999 % 10);
   //lcd.print("    ");
 }
-
 void yellow_pushbutton_isr() {
   mainEventFlags |= FLAG_YELLOW_PUSHBUTTON;
 }
@@ -148,12 +171,19 @@ void green_pushbutton_isr() {
   mainEventFlags |= FLAG_GREEN_PUSHBUTTON;
 }
 
+// ISR(INT0_vect) {
+//   mainEventFlags |= FLAG_YELLOW_PUSHBUTTON;
+// }
+
+// ISR(INT1_vect) {
+//   mainEventFlags |= FLAG_GREEN_PUSHBUTTON;
+// }
+
 ISR(TIMER1_COMPA_vect) {
   TCNT1 = TIMER_1_START;
   if (isYellowTimerRunning) {
     yellowTimerTenthsSecond++;
   }
-
 }
 
 ISR(TIMER2_COMPA_vect) {
@@ -161,5 +191,4 @@ ISR(TIMER2_COMPA_vect) {
   if (isGreenTimerRunning) {
     greenTimerThousandthsSecond++;
   }
-
 }

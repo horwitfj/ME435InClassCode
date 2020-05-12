@@ -44,7 +44,6 @@ void setup() {
   REG_PORT_PUSHBUTTON_GREEN |= _BV(BIT_PUSHBUTTON_GREEN);
   REG_PORT_PUSHBUTTON_BLUE |= _BV(BIT_PUSHBUTTON_BLUE);
 
-  // Update this later!
   // attachInterrupt(digitalPinToInterrupt(PIN_PUSHBUTTON_YELLOW), yellow_pushbutton_isr, FALLING);
   // attachInterrupt(digitalPinToInterrupt(PIN_PUSHBUTTON_RED), red_pushbutton_isr, FALLING);
 
@@ -83,18 +82,18 @@ void showFeedbackLeds() {
   }
 }
 
-void oldTestCode() {
-  REG_PORT_LED_RED |= _BV(BIT_LED_RED);
-  REG_PORT_LED_YELLOW |= _BV(BIT_LED_YELLOW);
-  REG_PORT_LED_GREEN |= _BV(BIT_LED_GREEN);
-  REG_PORT_LED_BLUE |= _BV(BIT_LED_BLUE);
-  delay(1000);
-  REG_PORT_LED_RED &= ~_BV(BIT_LED_RED);
-  REG_PORT_LED_YELLOW &= ~_BV(BIT_LED_YELLOW);
-  REG_PORT_LED_GREEN &= ~_BV(BIT_LED_GREEN);
-  REG_PORT_LED_BLUE &= ~_BV(BIT_LED_BLUE);
-  delay(1000);
-}
+// void oldTestCode() {
+//   REG_PORT_LED_RED |= _BV(BIT_LED_RED);
+//   REG_PORT_LED_YELLOW |= _BV(BIT_LED_YELLOW);
+//   REG_PORT_LED_GREEN |= _BV(BIT_LED_GREEN);
+//   REG_PORT_LED_BLUE |= _BV(BIT_LED_BLUE);
+//   delay(1000);
+//   REG_PORT_LED_RED &= ~_BV(BIT_LED_RED);
+//   REG_PORT_LED_YELLOW &= ~_BV(BIT_LED_YELLOW);
+//   REG_PORT_LED_GREEN &= ~_BV(BIT_LED_GREEN);
+//   REG_PORT_LED_BLUE &= ~_BV(BIT_LED_BLUE);
+//   delay(1000);
+// }
 
 void loop() {
   // Keep as a reference for the Sequencing HW
