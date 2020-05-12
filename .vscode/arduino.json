@@ -1,5 +1,4 @@
 {
     "board": "arduino:avr:uno",
-    "port": "COM11",
-    "sketch": "02_ExternalInterrputs\\FourToggleLEDsWithEnableInterrupts\\FourToggleLEDsWithEnableInterrupts.ino"
+    "port": "COM11"
 }
