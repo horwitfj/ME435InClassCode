@@ -6,20 +6,20 @@ LiquidCrystal lcd(13, 12, 11, 10, 9, 8);
 #define LINE_1 1
 #define PIN_POT 0
 
-#define REG_PORT_LED_YELLOW PORTB
-#define BIT_LED_YELLOW 1
+#define REG_PORT_LED_YELLOW PORTD
+#define BIT_LED_YELLOW 7
 #define REG_PORT_LED_GREEN PORTD
 #define BIT_LED_GREEN 6
 
 #define REG_PORT_PUSHBUTTON_YELLOW PORTD
 #define REG_PIN_PUSHBUTTON_YELLOW PIND
-#define BIT_PUSHBUTTON_YELLOW 2
+#define BIT_PUSHBUTTON_YELLOW 3
 #define REG_PORT_PUSHBUTTON_GREEN PORTD
 #define REG_PIN_PUSHBUTTON_GREEN PIND
-#define BIT_PUSHBUTTON_GREEN 1
+#define BIT_PUSHBUTTON_GREEN 2
 #define REG_PORT_PUSHBUTTON_BLUE PORTD
 #define REG_PIN_PUSHBUTTON_BLUE PIND
-#define BIT_PUSHBUTTON_BLUE 0
+#define BIT_PUSHBUTTON_BLUE 4
 
 // Using a 16 MHz clock, we want 0.1 second interrupts();
 // Timer 1 used for the Yellow Timer
@@ -54,31 +54,26 @@ unsigned long yellowTimerTenthsSecond;
 uint8_t isYellowTimerRunning = 0;
 unsigned long greenTimerThousandthsSecond;
 uint8_t isGreenTimerRunning = 0;
-unsigned long priorTimeMs = 0;
+
+int yellowDebounceMs = 0;
+int greenDebounceMs = 0;
+
+volatile uint8_t portdhistory = 0xFF;
 
 void setup() {
   lcd.begin(16, 2);
 
-  // pinMode(PIN_PUSHBUTTON_YELLOW, INPUT_PULLUP);
-  // pinMode(PIN_PUSHBUTTON_GREEN, INPUT_PULLUP);
-  // pinMode(PIN_PUSHBUTTON_BLUE, INPUT_PULLUP);
-  DDRB = _BV(BIT_LED_YELLOW);  // Set RED and YELLOW LEDs as Output
-  DDRD = _BV(BIT_LED_GREEN);   // Set GREEN and BLUE LEDs as Output
   REG_PORT_PUSHBUTTON_YELLOW |= _BV(BIT_PUSHBUTTON_YELLOW);
   REG_PORT_PUSHBUTTON_GREEN |= _BV(BIT_PUSHBUTTON_GREEN);
   REG_PORT_PUSHBUTTON_BLUE |= _BV(BIT_PUSHBUTTON_BLUE);
 
-  attachInterrupt(digitalPinToInterrupt(PIN_PUSHBUTTON_YELLOW), yellow_pushbutton_isr, FALLING);
-  attachInterrupt(digitalPinToInterrupt(PIN_PUSHBUTTON_GREEN), green_pushbutton_isr, FALLING);
-  // // EICRA = 0x0A;  // Set INT0 and INT1 to falling edge
-  // EICRA = _BV(ISC11) | _BV(ISC01);
-  // // EIMSK = 0x03;  // Turns on both INT0 and INT1
-  // EIMSK = _BV(INT0) | _BV(INT1);
+  PCICR = _BV(PCIE2);
+  PCMSK2 = _BV(PCINT19) | _BV(PCINT18);
 
-  pinMode(PIN_LED_GREEN, OUTPUT);
-  pinMode(PIN_LED_YELLOW, OUTPUT);
-  digitalWrite(PIN_LED_YELLOW, LOW);
-  digitalWrite(PIN_LED_GREEN, LOW);
+  DDRD = _BV(BIT_LED_GREEN) | _BV(BIT_LED_YELLOW);
+
+  REG_PORT_LED_YELLOW &= ~_BV(BIT_LED_YELLOW);
+  REG_PORT_LED_GREEN &= ~_BV(BIT_LED_GREEN);
 
   // Timer 1 setup
   TCCR1A = 0;  // Reset Timer1 Control Reg A
@@ -107,46 +102,36 @@ void loop() {
   if (mainEventFlags & FLAG_GREEN_PUSHBUTTON) {
     delay(20);
     mainEventFlags &= ~FLAG_GREEN_PUSHBUTTON;
-    if (!digitalRead(PIN_PUSHBUTTON_GREEN)) {
+    if (bit_is_clear(REG_PIN_PUSHBUTTON_GREEN, BIT_PUSHBUTTON_GREEN)) {
       // Do the action!
       isGreenTimerRunning = !isGreenTimerRunning;
 
-      digitalWrite(PIN_LED_GREEN, isGreenTimerRunning);
+      REG_PORT_LED_GREEN ^= _BV(BIT_LED_GREEN);
     }
   }
 
   if (mainEventFlags & FLAG_YELLOW_PUSHBUTTON) {
     delay(20);
     mainEventFlags &= ~FLAG_YELLOW_PUSHBUTTON;
-    if (!digitalRead(PIN_PUSHBUTTON_YELLOW)) {
+    if (bit_is_clear(REG_PIN_PUSHBUTTON_YELLOW, BIT_PUSHBUTTON_YELLOW)) {
       // Do the action!
       isYellowTimerRunning = !isYellowTimerRunning;
-
-      digitalWrite(PIN_LED_YELLOW, isYellowTimerRunning);
+      REG_PORT_LED_YELLOW ^= _BV(BIT_LED_YELLOW);
     }
   }
 
-  if (!digitalRead(PIN_PUSHBUTTON_BLUE)) {
+  if (bit_is_clear(REG_PIN_PUSHBUTTON_BLUE, BIT_PUSHBUTTON_BLUE)) {
     // Do the action!
-    digitalWrite(PIN_LED_GREEN, LOW);
-    digitalWrite(PIN_LED_YELLOW, LOW);
+    REG_PORT_LED_YELLOW &= ~_BV(BIT_LED_YELLOW);
+    REG_PORT_LED_GREEN &= ~_BV(BIT_LED_GREEN);
     lcd.clear();
     isYellowTimerRunning = 0;
     yellowTimerTenthsSecond = 0;
     isGreenTimerRunning = 0;
     greenTimerThousandthsSecond = 0;
   }
-  // unsigned long currentTimeMs = millis();
-  // unsigned long elapsedTimeMs = currentTimeMs - priorTimeMs;
-  // priorTimeMs = currentTimeMs;
-
-  // if (isYellowTimerRunning) {
-  //   yellowTimerTenthsSecond = yellowTimerTenthsSecond + elapsedTimeMs;
-  // }
-  // if (isGreenTimerRunning) {
-  //   greenTimerThousandthsSecond = greenTimerThousandthsSecond + elapsedTimeMs;
-  // }
-
+  yellowDebounceMs++;
+   greenDebounceMs++;
   updateLcd();
   // delay(100);
 }
@@ -163,21 +148,6 @@ void updateLcd() {
   lcd.print(greenTimerThousandthsSecond * 5 / 999 % 10);
   //lcd.print("    ");
 }
-void yellow_pushbutton_isr() {
-  mainEventFlags |= FLAG_YELLOW_PUSHBUTTON;
-}
-
-void green_pushbutton_isr() {
-  mainEventFlags |= FLAG_GREEN_PUSHBUTTON;
-}
-
-// ISR(INT0_vect) {
-//   mainEventFlags |= FLAG_YELLOW_PUSHBUTTON;
-// }
-
-// ISR(INT1_vect) {
-//   mainEventFlags |= FLAG_GREEN_PUSHBUTTON;
-// }
 
 ISR(TIMER1_COMPA_vect) {
   TCNT1 = TIMER_1_START;
@@ -190,5 +160,28 @@ ISR(TIMER2_COMPA_vect) {
   TCNT2 = TIMER_2_START;
   if (isGreenTimerRunning) {
     greenTimerThousandthsSecond++;
+  }
+}
+
+ISR(PCINT2_vect) {
+  // ISR called means that RD0, RD1, RD2, or RD3 changed.
+  uint8_t changedbits;
+  changedbits = PIND ^ portdhistory;  // All pins are on port D
+  portdhistory = PIND;
+  if (changedbits & _BV(BIT_PUSHBUTTON_YELLOW)) {
+    if ((yellowDebounceMs > 30)) {
+      if (bit_is_clear(REG_PIN_PUSHBUTTON_YELLOW, BIT_PUSHBUTTON_YELLOW)) {
+        mainEventFlags |= FLAG_YELLOW_PUSHBUTTON;
+        greenDebounceMs = 0;
+      }
+    }
+  }
+  if (changedbits & _BV(BIT_PUSHBUTTON_GREEN)) {
+    if (yellowDebounceMs > 30) {
+      if (bit_is_clear(REG_PIN_PUSHBUTTON_GREEN, BIT_PUSHBUTTON_GREEN)) {
+        mainEventFlags |= FLAG_GREEN_PUSHBUTTON;
+        yellowDebounceMs = 0;
+      }
+    }
   }
 }
