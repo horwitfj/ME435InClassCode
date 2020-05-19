@@ -1,5 +1,5 @@
 {
     "board": "arduino:avr:uno",
     "port": "COM11",
-    "sketch": "04_Communication\\LedOnOff\\LedOnOff.ino"
+    "sketch": "04_Communication\\CommunicationLab\\CommunicationLab.ino"
 }
