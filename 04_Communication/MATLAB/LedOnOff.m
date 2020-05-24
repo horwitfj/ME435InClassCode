@@ -1,6 +1,6 @@
 s = serial('COM11','Baudrate', 9600);
 fopen(s);
-for i = 1:5
+for i = 1:51
     fprintf('Turning LED ON\n');
     fprintf(s, 'ON');
     pause(2);
